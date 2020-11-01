@@ -1,0 +1,116 @@
+---
+title: "cBioPortal HER2 Mutations"
+author: "Aurora S Blucher"
+date: "10/29/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+
+## Collection of Breast HER2 Mutations from Public Datasets
+
+Uses ERBB2 (HER2) mutations accessed through cBioPortal across 13 breast cancer datasets. Data wrangling to feed into the primer generation script (primerGen_HER2Project.R) to generate primer sequences for Samuel's platform. EDA to assess frequency of mutations, subgroups by cancer type, PAM50 subtype, and survival.
+
+To do
+-clean up HER2 mutation file
+-cite all references from cBioPortal -> Methods draft
+-run through primerGen script -> probe list for Samuel
+-compare with existing HER2 mutation list, add annotation for (Done/New- Breast)
+-quick EDA based on clinical data - 
+  cancer subtype/ PAM50 status, HER2 ihc status
+-note for survival data - make sure to use the TCGA Clinical Data Resource (check if cbioportal is using this)
+
+```{r}
+#libraries
+library(tidyverse)
+library(here) #here starts where .Rproj file is
+library(readxl)
+library(stringr)
+
+#ERBB2 mutation file for for 13 studies (breast)
+erbb2_mutations<-read_tsv(here("data", "cBioPortal_Breast_ERBB2_2020_10_28", "MutationList_BySample.tsv"))
+View(erbb2_mutations)
+
+erbb2_mutations_filtered<-erbb2_mutations %>%
+  filter(!`Mutation Type`=="Fusion")
+View(erbb2_mutations_filtered)
+
+#number of unique samples -> 222 samples
+n_samples<-erbb2_mutations_filtered %>%
+  select(`Sample ID`) %>%
+  unique()
+View(n_samples)
+
+#number of unique alterations (mutations and in/dels) -> 97 unique alterations
+n_alterations<-erbb2_mutations_filtered %>%
+  select(`Protein Change`) %>%
+  unique()
+View(n_alterations)
+
+#count alterations by N samples, 24 alterations are in >=2 samples
+counts<-erbb2_mutations_filtered %>%
+  group_by(`Protein Change`) %>%
+  summarize(N_Samples = n_distinct(`Sample ID`))
+View(counts)
+#output table
+write_csv(counts, here("output", "ERBB2_Mutation_Frequency.csv"))
+
+
+```
+
+
+```{r}
+#processing to feed into primerGen script -> discuss with Samuel
+#tumor seq allele 1 and 2?
+#strand- cBioPortal doesn't indicate, FAQsays they assume (+) strand mutations
+#transcript strand - assumed the same
+#add fields: NCBI_Build, Hugo_Symbol, Entrez_Gene_ID, Amino_Acid_Change, Variant_Type (should be "SNV")
+mutations_forPrimerScript<-erbb2_mutations_filtered %>%
+  select(Chromosome, Start_Position=`Start Pos`, End_Position=`End Pos`, Reference_Allele=Ref, Tumor_Seq_Allele1=Var,
+         Tumor_Seq_Allele2 = Ref,  Variant_Type=`Variant Type`, Variant_Classification = `Mutation Type`, 
+         Protein_Change= `Protein Change`) %>%
+  mutate(NCBI_Build="37", Strand="+", Hugo_Symbol="ERBB2", Entrez_Gene_ID="2064", Transcript_Strand="+", 
+         Amino_Acid_Change=paste0("p.",Protein_Change), 
+         Variant_Type=ifelse(Variant_Type=="SNP", "SNV", Variant_Type), 
+         Project="HER2", Contact="Samuel", Date= "20201029", Prioritization_Score="UltraHigh" ) %>%
+  select(NCBI_Build, Chromosome, Start_Position, End_Position, Strand, 
+         Reference_Allele, Tumor_Seq_Allele1, Tumor_Seq_Allele2,
+         Hugo_Symbol, Entrez_Gene_ID, Transcript_Strand, Amino_Acid_Change, Variant_Type, Variant_Classification,
+         Project, Contact, Date, Prioritization_Score) %>%
+  unique()
+         
+View(mutations_forPrimerScript)
+write_tsv(mutations_forPrimerScript, here("data", "resources_erbb2", "Request_ERBB2.tsv"))
+
+```
+
+```{r}
+#Cross referencing with existing ERBB2 library list from Samuel
+current_erbb2_library<-read_excel(here("data", "resources_library_current", "ERBB2_list_GMLab_Current.xlsx")) %>%
+  mutate(AA_Change_Cleaned = paste0("p.", `AA change`))
+View(current_erbb2_library)
+
+#our newly created primer list (from 10.29.20)
+new_erbb2_probes<-read_tsv(here("output", "Output_ERBB2_Test2.tsv"))
+View(new_erbb2_probes)
+
+#read in primers
+#match on amino acid
+#annotated current library list
+#and add to list, NA's for well plates, etc
+new_erbb2_probes_annotated <- new_erbb2_probes %>%
+  filter(!symbol=="NA")%>%
+  mutate(In_Existing_Library = ifelse(AA_Change %in% current_erbb2_library$AA_Change_Cleaned, "Yes", "No"))
+View(new_erbb2_probes_annotated)
+
+#output
+write_tsv(new_erbb2_probes_annotated, here("output", "Output_ERBB2_Primers_Annotated.tsv"))
+
+
+
+```
+
