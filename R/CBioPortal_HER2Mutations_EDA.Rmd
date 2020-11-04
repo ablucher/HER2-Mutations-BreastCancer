@@ -15,14 +15,17 @@ knitr::opts_chunk$set(echo = TRUE)
 
 Uses ERBB2 (HER2) mutations accessed through cBioPortal across 13 breast cancer datasets. Data wrangling to feed into the primer generation script (primerGen_HER2Project.R) to generate primer sequences for Samuel's platform. EDA to assess frequency of mutations, subgroups by cancer type, PAM50 subtype, and survival.
 
-To do
--clean up HER2 mutation file
+To do 10/29/20
+-clean up HER2 mutation file (done)
+-run through primerGen script -> probe list for Samuel (done)
+-compare with existing HER2 mutation list, add annotation for (done)
+
+To do 11/3/20
 -cite all references from cBioPortal -> Methods draft
--run through primerGen script -> probe list for Samuel
--compare with existing HER2 mutation list, add annotation for (Done/New- Breast)
 -quick EDA based on clinical data - 
   cancer subtype/ PAM50 status, HER2 ihc status
 -note for survival data - make sure to use the TCGA Clinical Data Resource (check if cbioportal is using this)
+-testing
 
 ```{r}
 #libraries
@@ -81,7 +84,7 @@ mutations_forPrimerScript<-erbb2_mutations_filtered %>%
          Reference_Allele, Tumor_Seq_Allele1, Tumor_Seq_Allele2,
          Hugo_Symbol, Entrez_Gene_ID, Transcript_Strand, Amino_Acid_Change, Variant_Type, Variant_Classification,
          Project, Contact, Date, Prioritization_Score) %>%
-  unique()
+  distinct()
          
 View(mutations_forPrimerScript)
 write_tsv(mutations_forPrimerScript, here("data", "resources_erbb2", "Request_ERBB2.tsv"))
@@ -95,9 +98,28 @@ current_erbb2_library<-read_excel(here("data", "resources_library_current", "ERB
 View(current_erbb2_library)
 
 #our newly created primer list (from 10.29.20)
-new_erbb2_probes<-read_tsv(here("output", "Output_ERBB2_Test2.tsv"))
+new_erbb2_probes<-read_tsv(here("output", "Output_ERBB2_PrimerSequences.tsv"))
 View(new_erbb2_probes)
 
+#####check added 11/3/20 to resolve # issue between cbioportal and final primer numbers
+#check our list to see if we successfull made primer sequences for all
+
+#add key to the new probes
+new_erbb2_probes_key<-new_erbb2_probes %>%
+  mutate(key = paste0(reference, "_", mutation,"_", AA_Change)) 
+View(new_erbb2_probes_key)
+
+#check back against our list that we sent to primer gen
+mutations_forPrimerScript_key<- mutations_forPrimerScript%>%
+  mutate(key = paste0(Reference_Allele, "_", Tumor_Seq_Allele1, "_", Amino_Acid_Change)) %>%
+  mutate(PrimerGenerted = ifelse(key %in% new_erbb2_probes_key$key, "Yes", "No"))
+View(mutations_forPrimerScript_key)
+
+#check number of primers per mutation
+summarize_primers_by_AAChange<-new_erbb2_probes_key %>%
+  group_by(AA_Change) %>%
+  summarize(count = n_distinct(key))
+View(summarize_primers_by_AAChange)
 #read in primers
 #match on amino acid
 #annotated current library list
@@ -109,8 +131,6 @@ View(new_erbb2_probes_annotated)
 
 #output
 write_tsv(new_erbb2_probes_annotated, here("output", "Output_ERBB2_Primers_Annotated.tsv"))
-
-
 
 ```
 

@@ -5,7 +5,7 @@
   #10-28-20; update BioCManager and packages; update file paths to here() for clear project directory mangagement
 ########################################################################
 
-#first un-comment and run the install command, then run the library() command
+#first run the install command, then run the library() command
 #BiocManager::install(version = "3.12")
 library(BiocManager)
 #BiocManager::install("BSgenome.Hsapiens.UCSC.hg19") #this takes a little while
@@ -266,7 +266,7 @@ checkORFAlignment <- function(orf, genome = "BSgenome.Hsapiens.UCSC.hg19",
 #RUN FOR ERBB2 mutations
 variantFile <- here("data", "resources_erbb2", "Request_ERBB2.tsv")
 orfFile <- here("data","resources_ORF",  "ORF_collection_v3.txt")
-outName <- here("output", "Output_ERBB2_Test2.tsv")
+outName <- here("output", "Output_ERBB2_PrimerSequences.tsv")
 
 #samuel ->run this line to create primer sequences and output file :)
 #run 10/29/20
