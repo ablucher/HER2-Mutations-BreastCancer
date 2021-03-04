@@ -55,9 +55,31 @@ View(BRCASamples_Clinical_joinERBB2)
 #output to file
 write_tsv(BRCASamples_Clinical_joinERBB2, here("data_intermediate", "TCGA_PanCan_fromXena_BRCA_ERBB2.tsv"))
 
+#now let's look at the distribution of survival times here
+#long tail out to right, Samuel wants to use 3 years as our cutoff
+hist_survival<-BRCASamples_Clinical_joinERBB2 %>%
+  filter(GISTIC_Score==2) %>%
+  ggplot(aes(x=OS.time))+
+  geom_histogram(color = "black", fill = "gray75")+
+  geom_vline(aes(xintercept=1095),
+            color="blue", linetype="dashed", size=1)+
+  annotate(geom="text", x=1650, y=25, label="3YR Survival",
+              color="blue")+
+  labs(title="Distribution of OS in TCGA BRCA, ERBB2 Amplified Patients", subtitle="Requiring GISTIC Score==2")+
+  xlab("Overall Survival (days)")+
+  ylab("Count")
+hist_survival
 
+#Under 3 years
+HER2Amp_Under3Years<-BRCASamples_Clinical_joinERBB2 %>%
+  filter(GISTIC_Score==2) %>%
+  filter(OS.time<1095)
+View(HER2Amp_Under3Years) #79 samples
 
-
-
+#At or over 3 years
+HER2Amp_Over3Years<-BRCASamples_Clinical_joinERBB2 %>%
+  filter(GISTIC_Score==2) %>%
+  filter(OS.time>=1095)
+View(HER2Amp_Over3Years) #54 samples
 
 ```
