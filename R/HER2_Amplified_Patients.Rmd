@@ -1,0 +1,33 @@
+---
+title: "HER2_Amp_Patients"
+author: "Aurora S Blucher"
+date: "3/4/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+Script for TCGA patients; HER2
+
+Notes 03/04/21
+-TCGA breast patients, HER2 by IHC subset
+-pull in TCGA clinical/survival data (using clinical data resource*)
+-pull in CN and expression
+-compare between the 2 groups
+
+```{r}
+#tcga patients
+#get all her2 confirmed via IHC
+#should we check against the copy number pull?
+
+
+
+
+
+
+
+```
