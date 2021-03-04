@@ -1,0 +1,101 @@
+---
+title: "TCGABiolinks"
+author: "Aurora S Blucher"
+date: "3/4/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+#testing biolinks package - install
+BiocManager::install("TCGAbiolinks")
+library(TCGAbiolinks)
+
+#TUTORIAL FROM 
+#https://bioconductor.org/packages/devel/bioc/vignettes/TCGAbiolinks/inst/doc/analysis.html
+
+# You can define a list of samples to query and download providing relative TCGA barcodes.
+listSamples <- c("TCGA-E9-A1NG-11A-52R-A14M-07","TCGA-BH-A1FC-11A-32R-A13Q-07",
+                 "TCGA-A7-A13G-11A-51R-A13Q-07","TCGA-BH-A0DK-11A-13R-A089-07",
+                 "TCGA-E9-A1RH-11A-34R-A169-07","TCGA-BH-A0AU-01A-11R-A12P-07",
+                 "TCGA-C8-A1HJ-01A-11R-A13Q-07","TCGA-A7-A13D-01A-13R-A12P-07",
+                 "TCGA-A2-A0CV-01A-31R-A115-07","TCGA-AQ-A0Y5-01A-11R-A14M-07")
+
+# Query platform Illumina HiSeq with a list of barcode 
+query <- GDCquery(project = "TCGA-BRCA", 
+                  data.category = "Gene expression",
+                  data.type = "Gene expression quantification",
+                  experimental.strategy = "RNA-Seq",
+                  platform = "Illumina HiSeq",
+                  file.type = "results",
+                  barcode = listSamples, 
+                  legacy = TRUE)
+class(query)
+View(query)
+View(query$results)
+
+# Download a list of barcodes with platform IlluminaHiSeq_RNASeqV2
+GDCdownload(query)
+
+# Prepare expression matrix with geneID in the rows and samples (barcode) in the columns
+# rsem.genes.results as values
+BRCARnaseqSE <- GDCprepare(query)
+
+library(SummarizedExperiment)
+BRCAMatrix <- assay(BRCARnaseqSE,"raw_count") # or BRCAMatrix <- assay(BRCARnaseqSE,"raw_count")
+
+# For gene expression if you need to see a boxplot correlation and AAIC plot to define outliers you can run
+BRCARnaseq_CorOutliers <- TCGAanalyze_Preprocessing(BRCARnaseqSE)
+BRCARnaseq_CorOutliers
+
+#differential expression analysis (DEA)
+# Downstream analysis using gene expression data  
+# TCGA samples from IlluminaHiSeq_RNASeqV2 with type rsem.genes.results
+# save(dataBRCA, geneInfo , file = "dataGeneExpression.rda")
+#library(TCGAbiolinks)
+BiocManager::install("EDASeq")
+BiocManager::install("edgeR")
+library(EDASeq)
+library(edgeR)
+
+# normalization of genes
+dataNorm <- TCGAanalyze_Normalization(tabDF = dataBRCA, geneInfo =  geneInfo)
+
+# quantile filter of genes
+dataFilt <- TCGAanalyze_Filtering(tabDF = dataNorm,
+                                  method = "quantile", 
+                                  qnt.cut =  0.25)
+
+# selection of normal samples "NT"
+samplesNT <- TCGAquery_SampleTypes(barcode = colnames(dataFilt),
+                                   typesample = c("NT"))
+
+# selection of tumor samples "TP"
+samplesTP <- TCGAquery_SampleTypes(barcode = colnames(dataFilt), 
+                                   typesample = c("TP"))
+
+# Diff.expr.analysis (DEA)
+dataDEGs <- TCGAanalyze_DEA(mat1 = dataFilt[,samplesNT],
+                            mat2 = dataFilt[,samplesTP],
+                            Cond1type = "Normal",
+                            Cond2type = "Tumor",
+                            fdr.cut = 0.01 ,
+                            logFC.cut = 1,
+                            method = "glmLRT")
+
+# DEGs table with expression values in normal and tumor samples
+dataDEGsFiltLevel <- TCGAanalyze_LevelTab(dataDEGs,"Tumor","Normal",
+                                          dataFilt[,samplesTP],dataFilt[,samplesNT])
+
+dataDEGsFiltLevel
+```
+
