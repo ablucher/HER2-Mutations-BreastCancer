@@ -7,6 +7,9 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(here)
+library(readxl)
 ```
 
 ## R Markdown
@@ -21,9 +24,36 @@ Notes 03/04/21
 
 ```{r}
 #tcga patients
-#get all her2 confirmed via IHC
-#should we check against the copy number pull?
+#clinical, get all BRCA patients
+TCGASamplesAll<-read_excel(here("data", "TCGA_PANCAN_fromXena", "TCGA-CDR-SupplementalTableS1.xlsx"))
+#View(TCGASamplesAll)
 
+BRCASamples_Clinical<-TCGASamplesAll %>%
+  filter(type=="BRCA")%>%
+  select(Sample_ID = bcr_patient_barcode, type, histological_type, OS, OS.time)
+#View(BRCASamples_Clinical) #1097 total
+
+#TCGA COPY NUMBER info
+#erbb2, subset to brca
+#then require 2 or 1 (amplified)
+#
+TCGA_GISTIC<-read_tsv(here("data", "TCGA_PANCAN_fromXena", "TCGA.PANCAN.sampleMap_Gistic2_CopyNumber_Gistic2_all_thresholded.by_genes"))
+head(TCGA_GISTIC)
+
+TCGA_ERBB2<-TCGA_GISTIC %>%
+  filter(Sample=="ERBB2")%>% # a little funny because we need genes but this first column is titled 'Sample'
+  pivot_longer(-Sample, names_to = "Sample_ID", values_to = "GISTIC_Score") %>%
+  mutate(Sample_ID_Abbr = str_sub(Sample_ID, 0, -4L)) %>%
+  select(Sample_ID_Full=Sample_ID, Sample_ID=Sample_ID_Abbr, GeneName = Sample, GISTIC_Score)  
+View(TCGA_ERBB2)
+#output to file
+write_tsv(TCGA_ERBB2, here("data_intermediate", "TCGA_PanCan_fromXena_GISTIC2_ERBB2.tsv"))
+
+#okay now join with our TCGA BRCA subset above
+BRCASamples_Clinical_joinERBB2<-left_join(BRCASamples_Clinical, TCGA_ERBB2)
+View(BRCASamples_Clinical_joinERBB2)
+#output to file
+write_tsv(BRCASamples_Clinical_joinERBB2, here("data_intermediate", "TCGA_PanCan_fromXena_BRCA_ERBB2.tsv"))
 
 
 
