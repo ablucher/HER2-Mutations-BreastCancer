@@ -70,6 +70,11 @@ hist_survival<-BRCASamples_Clinical_joinERBB2 %>%
   ylab("Count")
 hist_survival
 
+HER2AmpSamples<-BRCASamples_Clinical_joinERBB2 %>%
+  filter(GISTIC_Score==2)
+View(HER2AmpSamples)#133 total, write to file
+write_tsv(HER2AmpSamples, here("data_intermediate", "TCGA_PanCan_fromXena_BRCA_ERBB2_Amplified.tsv"))
+
 #Under 3 years
 HER2Amp_Under3Years<-BRCASamples_Clinical_joinERBB2 %>%
   filter(GISTIC_Score==2) %>%
@@ -83,3 +88,29 @@ HER2Amp_Over3Years<-BRCASamples_Clinical_joinERBB2 %>%
 View(HER2Amp_Over3Years) #54 samples
 
 ```
+
+```{r}
+#okay get all the gistic data for these 133 samples
+head(TCGA_GISTIC)
+TCGA_GISTIC_HER2Amp_Samples<-TCGA_GISTIC %>%
+  select(Sample, one_of(HER2AmpSamples$Sample_ID_Full)) #not working?
+View(TCGA_GISTIC_HER2Amp_Samples)
+#write to file
+write_tsv(TCGA_GISTIC_HER2Amp_Samples, here("data_intermediate", "TCGA_PanCan_fromXena_GISTIC_HER2AmpSamples.tsv"))
+
+#we only want genes where there are 2 calls
+#don't need to subset, just count up
+
+
+#then group each gene
+#count samples SHORT
+#count samples LONG
+
+
+
+
+
+
+
+```
+
