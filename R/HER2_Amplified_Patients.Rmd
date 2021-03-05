@@ -285,7 +285,7 @@ dataDEGs <- TCGAanalyze_DEA(mat1 = BRCAMatrixShort,
                             mat2 = BRCAMatrixLong,
                             Cond1type = "Short",
                             Cond2type = "Long",
-                            fdr.cut = 0.05 ,
+                            fdr.cut = 0.20 , #let's see out to FDR<.20, we likely will use <0.10
                             logFC.cut = 1,
                             method = "glmLRT")
 
@@ -293,15 +293,66 @@ dataDEGs <- TCGAanalyze_DEA(mat1 = BRCAMatrixShort,
 dataDEGsFiltLevel <- TCGAanalyze_LevelTab(dataDEGs,"Short","Long",
                                           BRCAMatrixShort,BRCAMatrixLong)
 dataDEGsFiltLevel
+View(dataDEGs)
 View(dataDEGsFiltLevel)
 #output test
 write_tsv(dataDEGsFiltLevel, here("output", "Table_ShortVsLong_UppQuantNorm_DE_FoldChange_FDR.tsv"))
 
 #volcano plot
+volcano<-dataDEGsFiltLevel %>%
+  ggplot(aes(x=logFC, y=-log10(FDR))) + 
+  geom_point(aes(size = logFC), shape = 21,fill = "gray76") + 
+  labs(title = "Significant DE Genes Between HER2 Amplified Patients; Short vs Long Survival",
+       subtitle = "Short is <3 Years, Long is >=3 Years")
+volcano
+
+#TOP POSITIVE FOLD CHANGE GENES
+#UP IN THE LONG GROUP = associated with survival
+topPosFoldChange<-dataDEGsFiltLevel %>%
+  filter(logFC >0) %>%
+  filter(FDR<0.10) %>%
+  top_n(10, logFC) #we want to look at the biggest fold changes *under .10 for now
+View(topPosFoldChange)
+
+View(as.data.frame(dataFilt))
+dataExp_topPosGenes<-as.data.frame(dataFilt) %>%
+  rownames_to_column("Gene") %>%
+  filter(Gene %in% topPosFoldChange$mRNA) %>%
+  pivot_longer(-Gene, names_to = "Sample_ID", values_to = "Exp_ExpectedCounts")%>%
+  mutate(Group = ifelse(Sample_ID %in% samplesSHORT$Sample_ID_FullBarcode, "Short", "Long"))
+View(dataExp_topPosGenes)
 
 #check boxplots to confirm direction*
+boxplotTopPos<-dataExp_topPosGenes %>%
+  ggplot(aes(x = Group, y = log2(Exp_ExpectedCounts))) +
+  geom_boxplot(aes(fill = Group))
+boxplotTopPos + facet_wrap( ~ Gene, ncol=5)
+```
 
-#
 
+```{r}
+#BOXPLOTS
+
+#TOP NEGATIVE FOLD CHANGE GENES
+#UP IN THE SHORT GROUP = associated with poor survival -> our candidate resistance genes
+topNegFoldChange<-dataDEGsFiltLevel %>%
+  filter(logFC<0) %>%
+  #filter(FDR<0.10) %>%
+  top_n(10, -logFC) #we want to look at the biggest fold changes *under .10 for now
+View(topNegFoldChange)
+
+View(as.data.frame(dataFilt))
+dataExp_topNegGenes<-as.data.frame(dataFilt) %>%
+  rownames_to_column("Gene") %>%
+  filter(Gene %in% topNegFoldChange$mRNA) %>%
+  pivot_longer(-Gene, names_to = "Sample_ID", values_to = "Exp_ExpectedCounts")%>%
+  mutate(Group = ifelse(Sample_ID %in% samplesSHORT$Sample_ID_FullBarcode, "Short", "Long"))
+View(dataExp_topNegGenes)
+
+#check boxplots to confirm direction*
+boxplotTopNeg<-dataExp_topNegGenes %>%
+  ggplot(aes(x = Group, y = log2(Exp_ExpectedCounts))) +
+  geom_boxplot(aes(fill = Group))
+boxplotTopNeg + facet_wrap( ~ Gene, ncol=5)
 ```
 
