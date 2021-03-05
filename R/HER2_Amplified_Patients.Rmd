@@ -98,14 +98,28 @@ View(TCGA_GISTIC_HER2Amp_Samples)
 #write to file
 write_tsv(TCGA_GISTIC_HER2Amp_Samples, here("data_intermediate", "TCGA_PanCan_fromXena_GISTIC_HER2AmpSamples.tsv"))
 
-#we only want genes where there are 2 calls
-#don't need to subset, just count up
+#go long, so we can annotate
+#then filter to just our +2 calls, b/c we only want amplifications
+TCGA_GISTIC_HER2Amp_SamplesLONG<-TCGA_GISTIC_HER2Amp_Samples %>%
+  pivot_longer(-Sample, names_to = "Sample_ID", values_to = "GISTIC_Score") %>% #ugh the sample ID here should be 'gene'
+  mutate(Group = ifelse(Sample_ID %in% HER2Amp_Under3Years$Sample_ID_Full, "Short_Under3Years", "Long_Over3Years")) %>%
+  select(Sample_ID_Full = Sample_ID, Group, Gene=Sample, GISTIC_Score) %>%
+  filter(GISTIC_Score==2)
 
+View(TCGA_GISTIC_HER2Amp_SamplesLONG)
 
-#then group each gene
-#count samples SHORT
-#count samples LONG
-
+#now create grouped data frame and count up per gene; how many in short versus long groups?
+TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts<-TCGA_GISTIC_HER2Amp_SamplesLONG %>%
+  group_by(Gene, Group) %>%
+  tally()
+View(TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts)
+  
+#back to wide
+TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts_WIDE<-TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts %>%
+  pivot_wider(names_from = Group, values_from= n, values_fill=0 ) #fill in our NAs with a 0 count
+View(TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts_WIDE)
+#output filee
+write_tsv(TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts_WIDE, here("data_intermediate", "TCGA_PanCan_fromXena_GISTIC_HER2AmpSamples_SurvivalGroupCounts.tsv"))
 
 
 
