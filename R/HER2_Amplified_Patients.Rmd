@@ -45,15 +45,15 @@ TCGA_ERBB2<-TCGA_GISTIC %>%
   pivot_longer(-Sample, names_to = "Sample_ID", values_to = "GISTIC_Score") %>%
   mutate(Sample_ID_Abbr = str_sub(Sample_ID, 0, -4L)) %>%
   select(Sample_ID_Full=Sample_ID, Sample_ID=Sample_ID_Abbr, GeneName = Sample, GISTIC_Score)  
-View(TCGA_ERBB2)
+#View(TCGA_ERBB2)
 #output to file
-write_tsv(TCGA_ERBB2, here("data_intermediate", "TCGA_PanCan_fromXena_GISTIC2_ERBB2.tsv"))
+#write_tsv(TCGA_ERBB2, here("data_intermediate", "TCGA_PanCan_fromXena_GISTIC2_ERBB2.tsv"))
 
 #okay now join with our TCGA BRCA subset above
 BRCASamples_Clinical_joinERBB2<-left_join(BRCASamples_Clinical, TCGA_ERBB2)
-View(BRCASamples_Clinical_joinERBB2)
+#View(BRCASamples_Clinical_joinERBB2)
 #output to file
-write_tsv(BRCASamples_Clinical_joinERBB2, here("data_intermediate", "TCGA_PanCan_fromXena_BRCA_ERBB2.tsv"))
+#write_tsv(BRCASamples_Clinical_joinERBB2, here("data_intermediate", "TCGA_PanCan_fromXena_BRCA_ERBB2.tsv"))
 
 #now let's look at the distribution of survival times here
 #long tail out to right, Samuel wants to use 3 years as our cutoff
@@ -72,22 +72,23 @@ hist_survival
 
 HER2AmpSamples<-BRCASamples_Clinical_joinERBB2 %>%
   filter(GISTIC_Score==2)
-View(HER2AmpSamples)#133 total, write to file
-write_tsv(HER2AmpSamples, here("data_intermediate", "TCGA_PanCan_fromXena_BRCA_ERBB2_Amplified.tsv"))
+#View(HER2AmpSamples)#133 total, write to file
+#write_tsv(HER2AmpSamples, here("data_intermediate", "TCGA_PanCan_fromXena_BRCA_ERBB2_Amplified.tsv"))
 
+#read in if you are starting from here**
 HER2AmpSamples<-read_tsv(here("data_intermediate", "TCGA_PanCan_fromXena_BRCA_ERBB2_Amplified.tsv"))
 
 #Under 3 years
 HER2Amp_Under3Years<-HER2AmpSamples%>%
   filter(GISTIC_Score==2) %>%
   filter(OS.time<1095)
-View(HER2Amp_Under3Years) #79 samples
+#View(HER2Amp_Under3Years) #79 samples
 
 #At or over 3 years
 HER2Amp_Over3Years<-HER2AmpSamples%>%
   filter(GISTIC_Score==2) %>%
   filter(OS.time>=1095)
-View(HER2Amp_Over3Years) #54 samples
+#View(HER2Amp_Over3Years) #54 samples
 
 ```
 
@@ -96,9 +97,9 @@ View(HER2Amp_Over3Years) #54 samples
 head(TCGA_GISTIC)
 TCGA_GISTIC_HER2Amp_Samples<-TCGA_GISTIC %>%
   select(Sample, one_of(HER2AmpSamples$Sample_ID_Full)) #not working?
-View(TCGA_GISTIC_HER2Amp_Samples)
+#View(TCGA_GISTIC_HER2Amp_Samples)
 #write to file
-write_tsv(TCGA_GISTIC_HER2Amp_Samples, here("data_intermediate", "TCGA_PanCan_fromXena_GISTIC_HER2AmpSamples.tsv"))
+#write_tsv(TCGA_GISTIC_HER2Amp_Samples, here("data_intermediate", "TCGA_PanCan_fromXena_GISTIC_HER2AmpSamples.tsv"))
 
 #go long, so we can annotate
 #then filter to just our +2 calls, b/c we only want amplifications
@@ -107,26 +108,18 @@ TCGA_GISTIC_HER2Amp_SamplesLONG<-TCGA_GISTIC_HER2Amp_Samples %>%
   mutate(Group = ifelse(Sample_ID %in% HER2Amp_Under3Years$Sample_ID_Full, "Short_Under3Years", "Long_Over3Years")) %>%
   select(Sample_ID_Full = Sample_ID, Group, Gene=Sample, GISTIC_Score) %>%
   filter(GISTIC_Score==2)
-
-View(TCGA_GISTIC_HER2Amp_SamplesLONG)
+#View(TCGA_GISTIC_HER2Amp_SamplesLONG)
 
 #now create grouped data frame and count up per gene; how many in short versus long groups?
 TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts<-TCGA_GISTIC_HER2Amp_SamplesLONG %>%
   group_by(Gene, Group) %>%
   tally()
-View(TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts)
+#View(TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts)
   
 #back to wide
 TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts_WIDE<-TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts %>%
   pivot_wider(names_from = Group, values_from= n, values_fill=0 ) #fill in our NAs with a 0 count
-View(TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts_WIDE)
-#output filee
-write_tsv(TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts_WIDE, here("data_intermediate", "TCGA_PanCan_fromXena_GISTIC_HER2AmpSamples_SurvivalGroupCounts.tsv"))
-
-#rename date farme
-#dataFrame_GroupCounts<-TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts_WIDE %>%
-#  pivot_longer(-Gene)
-#View(dataFrame_GroupCounts)
+#View(TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts_WIDE)
 
 #set up with broom so we can iterate and run proportion tests
 library(broom)
@@ -155,14 +148,17 @@ prop.test(x, n, conf.level = .95) #compare counts versus
 
 
 #see example from here:
+```
 
+```{r}
+#RUN PROPORTIONS TEST FOR NUMBER OF GENE CN AMPLIFICATIONS BETWEEN SHORT AND LONG GROUPS
 
 #now, we only want what is amplified in SHORT versus LONG
 #run 7:19PM -> how long?
 #alternative should be LESS, since we want to test that LONG< SHORT
 #i.e. that the count of amplifications is LESS IN LONG SURVIVAL versus SHORT SURVIVAL
 dataFrame_PropTestFull<-TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts_WIDE%>% 
-  filter(Short_Under3Years>0) %>% #ADD FILTER HERE
+  filter(Short_Under3Years>0) %>% #Add filter here; require at least 5 samples
   group_by(Gene) %>%
   mutate(test = list(broom::tidy(prop.test(c(Long_Over3Years, Short_Under3Years), c(54,79), 
                                            alternative = "less", conf.level = .95)))) %>%
@@ -170,6 +166,13 @@ dataFrame_PropTestFull<-TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts_WIDE%>%
 View(dataFrame_PropTestFull)
 #write to file
 write_tsv(dataFrame_PropTestFull, here("output", "PropTest_LongGroupLessAmpThanShortGroupAmp_Results_030421.tsv"))
+
+#read in the file and review
+CNShortHits<-read_tsv(here("output", "PropTest_LongGroupLessAmpThanShortGroupAmp_Results_030421.tsv"))
+View(CNShortHits)
+
+#add FDR correction
+CNShortHits_FDR<-CNSHortHits
 
 ```
 
