@@ -298,13 +298,44 @@ View(dataDEGsFiltLevel)
 #output test
 write_tsv(dataDEGsFiltLevel, here("output", "Table_ShortVsLong_UppQuantNorm_DE_FoldChange_FDR.tsv"))
 
+#review our top hits
+#this is FDR<0.20, we can be more restrictive (discuss with Samuel)
+ShortHits<-dataDEGsFiltLevel %>%
+  filter(logFC<0)
+View(ShortHits)
+#output short hits only
+write_tsv(ShortHits, here("output", "Table_ShortVsLong_UppQuantNorm_DE_FoldChange_FDR_ShortHits.tsv"))
+
+
 #volcano plot
-volcano<-dataDEGsFiltLevel %>%
+#add column to data frame for our volors in volcano plot
+dataDEGsFiltLevel_annotated<-dataDEGsFiltLevel %>%
+  mutate(Group = ifelse(logFC <0, "OverExpressed_inShort", "OverExpressed_inLong"))
+View(dataDEGsFiltLevel_annotated)
+
+volcano<-dataDEGsFiltLevel_annotated %>%
   ggplot(aes(x=logFC, y=-log10(FDR))) + 
-  geom_point(aes(size = logFC), shape = 21,fill = "gray76") + 
+  geom_point(aes(size = logFC, fill = Group), shape = 21) + 
   labs(title = "Significant DE Genes Between HER2 Amplified Patients; Short vs Long Survival",
        subtitle = "Short is <3 Years, Long is >=3 Years")
 volcano
+
+library(ggrepel)
+
+#manual pretty up
+volcano<-dataDEGsFiltLevel_annotated %>%
+  ggplot(aes(x=logFC, y=-log10(FDR))) + 
+  geom_point(aes(size = logFC, fill = Group), shape = 21) + 
+  scale_fill_manual(values = c("gray76", "turquoise3"))+
+  labs(title = "Significant DE Genes Between HER2 Amplified Patients; Short vs Long Survival",
+       subtitle = "Short is <3 Years, Long is >=3 Years") + 
+  geom_text_repel(data = subset(dataDEGsFiltLevel_annotated, logFC<(-5.0)),
+                  aes(label = mRNA), size = 2)
+volcano
+
+```
+
+```{r}
 
 #TOP POSITIVE FOLD CHANGE GENES
 #UP IN THE LONG GROUP = associated with survival
@@ -312,15 +343,15 @@ topPosFoldChange<-dataDEGsFiltLevel %>%
   filter(logFC >0) %>%
   filter(FDR<0.10) %>%
   top_n(10, logFC) #we want to look at the biggest fold changes *under .10 for now
-View(topPosFoldChange)
+#View(topPosFoldChange)
 
-View(as.data.frame(dataFilt))
+#View(as.data.frame(dataFilt))
 dataExp_topPosGenes<-as.data.frame(dataFilt) %>%
   rownames_to_column("Gene") %>%
   filter(Gene %in% topPosFoldChange$mRNA) %>%
   pivot_longer(-Gene, names_to = "Sample_ID", values_to = "Exp_ExpectedCounts")%>%
   mutate(Group = ifelse(Sample_ID %in% samplesSHORT$Sample_ID_FullBarcode, "Short", "Long"))
-View(dataExp_topPosGenes)
+#View(dataExp_topPosGenes)
 
 #check boxplots to confirm direction*
 boxplotTopPos<-dataExp_topPosGenes %>%
@@ -339,15 +370,15 @@ topNegFoldChange<-dataDEGsFiltLevel %>%
   filter(logFC<0) %>%
   #filter(FDR<0.10) %>%
   top_n(10, -logFC) #we want to look at the biggest fold changes *under .10 for now
-View(topNegFoldChange)
+#View(topNegFoldChange)
 
-View(as.data.frame(dataFilt))
+#View(as.data.frame(dataFilt))
 dataExp_topNegGenes<-as.data.frame(dataFilt) %>%
   rownames_to_column("Gene") %>%
   filter(Gene %in% topNegFoldChange$mRNA) %>%
   pivot_longer(-Gene, names_to = "Sample_ID", values_to = "Exp_ExpectedCounts")%>%
   mutate(Group = ifelse(Sample_ID %in% samplesSHORT$Sample_ID_FullBarcode, "Short", "Long"))
-View(dataExp_topNegGenes)
+#View(dataExp_topNegGenes)
 
 #check boxplots to confirm direction*
 boxplotTopNeg<-dataExp_topNegGenes %>%
