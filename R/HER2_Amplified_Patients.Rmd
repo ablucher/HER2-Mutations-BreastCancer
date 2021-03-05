@@ -75,14 +75,16 @@ HER2AmpSamples<-BRCASamples_Clinical_joinERBB2 %>%
 View(HER2AmpSamples)#133 total, write to file
 write_tsv(HER2AmpSamples, here("data_intermediate", "TCGA_PanCan_fromXena_BRCA_ERBB2_Amplified.tsv"))
 
+HER2AmpSamples<-read_tsv(here("data_intermediate", "TCGA_PanCan_fromXena_BRCA_ERBB2_Amplified.tsv"))
+
 #Under 3 years
-HER2Amp_Under3Years<-BRCASamples_Clinical_joinERBB2 %>%
+HER2Amp_Under3Years<-HER2AmpSamples%>%
   filter(GISTIC_Score==2) %>%
   filter(OS.time<1095)
 View(HER2Amp_Under3Years) #79 samples
 
 #At or over 3 years
-HER2Amp_Over3Years<-BRCASamples_Clinical_joinERBB2 %>%
+HER2Amp_Over3Years<-HER2AmpSamples%>%
   filter(GISTIC_Score==2) %>%
   filter(OS.time>=1095)
 View(HER2Amp_Over3Years) #54 samples
@@ -195,6 +197,7 @@ query <- GDCquery(project = "TCGA-BRCA",
 class(query)
 View(query)
 class(query$barcode)
+View(query$barcode)
 
 # Download a list of barcodes with platform IlluminaHiSeq_RNASeqV2
 GDCdownload(query)
@@ -202,10 +205,13 @@ GDCdownload(query)
 # Prepare expression matrix with geneID in the rows and samples (barcode) in the columns
 # rsem.genes.results as values
 BRCARnaseqSE <- GDCprepare(query)
+View(BRCARnaseqSE)
 
 library(SummarizedExperiment)
 BRCAMatrix <- assay(BRCARnaseqSE,"raw_count") # or BRCAMatrix <- assay(BRCARnaseqSE,"raw_count")
+View(BRCAMatrix) #132 samples X 19,947 genes
 
+####skip
 
 # REVIEW this step
 # For gene expression if you need to see a boxplot correlation and AAIC plot to define outliers you can run
@@ -215,6 +221,77 @@ BRCARnaseq_CorOutliers
 library(EDASeq)
 library(edgeR)
 
+# normalization of genes
+dataNorm <- TCGAanalyze_Normalization(tabDF = dataBRCA, geneInfo =  geneInfo)
+
+# quantile filter of genes
+dataFilt <- TCGAanalyze_Filtering(tabDF = dataNorm,
+                                  method = "quantile", 
+                                  qnt.cut =  0.25)
+View(dataFilt)
+
+#now we need to assign SHORT vs LONG groups
+
+#######
+
+View(BRCAMatrix)
+#get all the column names = samlple names as queries
+BRCAMatrix_sampleNamesFull<-colnames(BRCAMatrix)
+View(BRCAMatrix_sampleNamesFull)
+BRCAMatrix_sampleNamesFull<-as.data.frame(BRCAMatrix_sampleNamesFull) #data frame first so we can set colnames
+colnames(BRCAMatrix_sampleNamesFull)<-c("Sample_ID_FullBarcode") 
+
+BRCAMatrix_sampleNamesFull_Abbr<-BRCAMatrix_sampleNamesFull %>%
+  mutate(Sample_ID = str_sub(Sample_ID_FullBarcode, 0, 12))
+View(BRCAMatrix_sampleNamesFull_Abbr)
+
+#now join with our sample information
+BRCAMatrix_sampleNamesFull_Abbr_toGroup<-BRCAMatrix_sampleNamesFull_Abbr %>%
+  mutate(Group = ifelse(Sample_ID %in% HER2Amp_Over3Years$Sample_ID, "Long", "Short"))
+View(BRCAMatrix_sampleNamesFull_Abbr_toGroup)
+
+
+#WORKING HERE
+
+#okay, now need to split according to this indicator
+samplesSHORT<-BRCAMatrix_sampleNamesFull_Abbr_toGroup %>%
+  filter(Group=="Short") %>%
+  select(Sample_ID_FullBarcode)
+View(samplesSHORT) #78 entries, matches
+
+# selection of tumor samples "TP"
+samplesLONG<-BRCAMatrix_sampleNamesFull_Abbr_toGroup %>%
+  filter(Group=="Long") %>%
+  select(Sample_ID_FullBarcode)
+View(samplesLONG) #54 entries, matches
+
+#now we should be able to subset according to these
+BRCADataShort<-as.data.frame(BRCAMatrix) %>%
+  select(one_of(samplesSHORT$Sample_ID_FullBarcode))
+View(BRCADataShort)
+BRCAMatrixShort<-as.matrix(BRCADataShort)
+View(BRCAMatrixShort)
+
+BRCADataLong<-as.data.frame(BRCAMatrix) %>%
+  select(one_of(samplesLONG$Sample_ID_FullBarcode))
+View(BRCADataLong)
+BRCAMatrixLong<-as.matrix(BRCADataLong)
+
+
+
+# Diff.expr.analysis (DEA)
+dataDEGs <- TCGAanalyze_DEA(mat1 = dataFilt[,samplesNT],
+                            mat2 = dataFilt[,samplesTP],
+                            Cond1type = "Normal",
+                            Cond2type = "Tumor",
+                            fdr.cut = 0.01 ,
+                            logFC.cut = 1,
+                            method = "glmLRT")
+
+
+
+
+#if this runs, need to pull boxplots to check
 
 ```
 
