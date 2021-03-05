@@ -121,9 +121,99 @@ View(TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts_WIDE)
 #output filee
 write_tsv(TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts_WIDE, here("data_intermediate", "TCGA_PanCan_fromXena_GISTIC_HER2AmpSamples_SurvivalGroupCounts.tsv"))
 
+#rename date farme
+#dataFrame_GroupCounts<-TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts_WIDE %>%
+#  pivot_longer(-Gene)
+#View(dataFrame_GroupCounts)
+
+#set up with broom so we can iterate and run proportion tests
+library(broom)
+#prop.test set up
+x<-c(12, 26) #cases
+n<-c(24, 28) #counts of the trial
+prop.test(x, n) #compare counts versus
+
+#start with a small sample to get broom set up first
+View(TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts_WIDE[1:10,]) #just 10 here
+
+#let's see if this works; otherwise put it away 7:30pm
+#prop.test might need table() command, or 2 vectors, not sure
+#check to make sure these numbers are right based on example
+dataFrame_PropTest<-TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts_WIDE[20:50,]%>% 
+  group_by(Gene) %>%
+  mutate(test = list(broom::tidy(prop.test(c(Long_Over3Years, Short_Under3Years), c(54,79), 
+                                           conf.level = .95, alternative="less")))) %>%
+  tidyr::unnest(test)
+View(dataFrame_PropTest)
+
+#check 12 long, 17 short | yes this matches our data table above, first entry; good
+x<-c(2, 0) #cases
+n<-c(54, 79) #counts of the trial
+prop.test(x, n, conf.level = .95) #compare counts versus
 
 
+#see example from here:
 
+
+#now, we only want what is amplified in SHORT versus LONG
+#run 7:19PM -> how long?
+#alternative should be LESS, since we want to test that LONG< SHORT
+#i.e. that the count of amplifications is LESS IN LONG SURVIVAL versus SHORT SURVIVAL
+dataFrame_PropTestFull<-TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts_WIDE%>% 
+  filter(Short_Under3Years>0) %>% #ADD FILTER HERE
+  group_by(Gene) %>%
+  mutate(test = list(broom::tidy(prop.test(c(Long_Over3Years, Short_Under3Years), c(54,79), 
+                                           alternative = "less", conf.level = .95)))) %>%
+  tidyr::unnest(test)
+View(dataFrame_PropTestFull)
+#write to file
+write_tsv(dataFrame_PropTestFull, here("output", "PropTest_LongGroupLessAmpThanShortGroupAmp_Results_030421.tsv"))
+
+```
+
+```{r}
+#start rna-seq section
+#our 133 erbb2 samples
+HER2Samples_OurSet<-read_tsv(here("data_intermediate", "TCGA_PanCan_fromXena_BRCA_ERBB2_Amplified.tsv"))
+View(HER2Samples_OurSet)
+
+#okay now try adapting the tcgabiolinks vignette for our samples
+library(TCGAbiolinks)
+
+#we don't have the full barcodes, so this may not work
+listSamples <- HER2Samples_OurSet$Sample_ID_Full
+
+# Query platform Illumina HiSeq with a list of barcode #?Working so far for our BRCA samples
+query <- GDCquery(project = "TCGA-BRCA", 
+                  data.category = "Gene expression",
+                  data.type = "Gene expression quantification",
+                  experimental.strategy = "RNA-Seq",
+                  platform = "Illumina HiSeq",
+                  file.type = "results",
+                  barcode = listSamples, 
+                  legacy = TRUE)
+class(query)
+View(query)
+class(query$barcode)
+
+# Download a list of barcodes with platform IlluminaHiSeq_RNASeqV2
+GDCdownload(query)
+
+# Prepare expression matrix with geneID in the rows and samples (barcode) in the columns
+# rsem.genes.results as values
+BRCARnaseqSE <- GDCprepare(query)
+
+library(SummarizedExperiment)
+BRCAMatrix <- assay(BRCARnaseqSE,"raw_count") # or BRCAMatrix <- assay(BRCARnaseqSE,"raw_count")
+
+
+# REVIEW this step
+# For gene expression if you need to see a boxplot correlation and AAIC plot to define outliers you can run
+BRCARnaseq_CorOutliers <- TCGAanalyze_Preprocessing(BRCARnaseqSE)
+BRCARnaseq_CorOutliers
+
+library(EDASeq)
+library(edgeR)
 
 
 ```
