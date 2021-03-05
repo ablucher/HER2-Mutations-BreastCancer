@@ -222,21 +222,22 @@ library(EDASeq)
 library(edgeR)
 
 # normalization of genes
-dataNorm <- TCGAanalyze_Normalization(tabDF = dataBRCA, geneInfo =  geneInfo)
+dataNorm <- TCGAanalyze_Normalization(tabDF = BRCAMatrix, geneInfo =  geneInfo)
+View(dataNorm)
 
 # quantile filter of genes
 dataFilt <- TCGAanalyze_Filtering(tabDF = dataNorm,
                                   method = "quantile", 
-                                  qnt.cut =  0.25)
+                                  qnt.cut =  0.25) #we are filtering to ABOVE the .25 quantile, i.e. drop lowest 25%
 View(dataFilt)
-
+class(dataFilt)
 #now we need to assign SHORT vs LONG groups
 
 #######
 
 View(BRCAMatrix)
 #get all the column names = samlple names as queries
-BRCAMatrix_sampleNamesFull<-colnames(BRCAMatrix)
+BRCAMatrix_sampleNamesFull<-colnames(dataFilt)#colnames(BRCAMatrix) #Subbing out dataFile here
 View(BRCAMatrix_sampleNamesFull)
 BRCAMatrix_sampleNamesFull<-as.data.frame(BRCAMatrix_sampleNamesFull) #data frame first so we can set colnames
 colnames(BRCAMatrix_sampleNamesFull)<-c("Sample_ID_FullBarcode") 
@@ -266,13 +267,13 @@ samplesLONG<-BRCAMatrix_sampleNamesFull_Abbr_toGroup %>%
 View(samplesLONG) #54 entries, matches
 
 #now we should be able to subset according to these
-BRCADataShort<-as.data.frame(BRCAMatrix) %>%
+BRCADataShort<-as.data.frame(dataFilt) %>% #as.data.frame(BRCAMatrix) %>% #subbing data file
   select(one_of(samplesSHORT$Sample_ID_FullBarcode))
 View(BRCADataShort)
 BRCAMatrixShort<-as.matrix(BRCADataShort)
 View(BRCAMatrixShort)
 
-BRCADataLong<-as.data.frame(BRCAMatrix) %>%
+BRCADataLong<-as.data.frame(dataFilt) %>%
   select(one_of(samplesLONG$Sample_ID_FullBarcode))
 View(BRCADataLong)
 BRCAMatrixLong<-as.matrix(BRCADataLong)
@@ -280,18 +281,27 @@ BRCAMatrixLong<-as.matrix(BRCADataLong)
 
 
 # Diff.expr.analysis (DEA)
-dataDEGs <- TCGAanalyze_DEA(mat1 = dataFilt[,samplesNT],
-                            mat2 = dataFilt[,samplesTP],
-                            Cond1type = "Normal",
-                            Cond2type = "Tumor",
-                            fdr.cut = 0.01 ,
+dataDEGs <- TCGAanalyze_DEA(mat1 = BRCAMatrixShort,
+                            mat2 = BRCAMatrixLong,
+                            Cond1type = "Short",
+                            Cond2type = "Long",
+                            fdr.cut = 0.05 ,
                             logFC.cut = 1,
                             method = "glmLRT")
 
-
-
-
 #if this runs, need to pull boxplots to check
+dataDEGsFiltLevel <- TCGAanalyze_LevelTab(dataDEGs,"Short","Long",
+                                          BRCAMatrixShort,BRCAMatrixLong)
+dataDEGsFiltLevel
+View(dataDEGsFiltLevel)
+#output test
+write_tsv(dataDEGsFiltLevel, here("output", "Table_ShortVsLong_UppQuantNorm_DE_FoldChange_FDR.tsv"))
+
+#volcano plot
+
+#check boxplots to confirm direction*
+
+#
 
 ```
 
