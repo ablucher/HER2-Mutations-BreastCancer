@@ -121,6 +121,20 @@ TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts_WIDE<-TCGA_GISTIC_HER2Amp_SamplesLON
   pivot_wider(names_from = Group, values_from= n, values_fill=0 ) #fill in our NAs with a 0 count
 #View(TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts_WIDE)
 
+#add quick historgram - what is the distribution of # patients with amplification in the short group
+#we will set threshold to remove <5 (check distribution though)
+hist_short<-TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts_WIDE %>%
+  ggplot(aes(x=Short_Under3Years))+
+  geom_histogram(binwidth=1, color = "black", fill = "gray75")+
+  geom_vline(aes(xintercept=5),
+            color="blue", linetype="dashed", size=1)+
+  annotate(geom="text", x=11, y=4000, label=">5 Patients",
+              color="blue")+
+  labs(title="Distribution of #Samples Altered Per Gene in Short Group", subtitle="Requiring GISTIC Score==2")+
+  xlab("# Samples with Amplification in Short Group")+
+  ylab("Count")
+hist_short
+
 #set up with broom so we can iterate and run proportion tests
 library(broom)
 #prop.test set up
@@ -158,21 +172,25 @@ prop.test(x, n, conf.level = .95) #compare counts versus
 #alternative should be LESS, since we want to test that LONG< SHORT
 #i.e. that the count of amplifications is LESS IN LONG SURVIVAL versus SHORT SURVIVAL
 dataFrame_PropTestFull<-TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts_WIDE%>% 
-  filter(Short_Under3Years>0) %>% #Add filter here; require at least 5 samples
+  filter(Short_Under3Years>=5) %>% #Add filter here; require at least 5 samples
   group_by(Gene) %>%
   mutate(test = list(broom::tidy(prop.test(c(Long_Over3Years, Short_Under3Years), c(54,79), 
                                            alternative = "less", conf.level = .95)))) %>%
   tidyr::unnest(test)
 View(dataFrame_PropTestFull)
 #write to file
-write_tsv(dataFrame_PropTestFull, here("output", "PropTest_LongGroupLessAmpThanShortGroupAmp_Results_030421.tsv"))
+write_tsv(dataFrame_PropTestFull, here("output", "PropTest_LongGroupLessAmpThanShortGroupAmp_Results_030521.tsv"))
 
 #read in the file and review
-CNShortHits<-read_tsv(here("output", "PropTest_LongGroupLessAmpThanShortGroupAmp_Results_030421.tsv"))
-View(CNShortHits)
+#CNShortHits<-read_tsv(here("output", "PropTest_LongGroupLessAmpThanShortGroupAmp_Results_030421.tsv"))
+#View(CNShortHits)
 
 #add FDR correction
-CNShortHits_FDR<-CNSHortHits
+CNShortHits_FDR<-dataFrame_PropTestFull%>%
+  ungroup() %>%
+  mutate(fdr = p.adjust(p.value, method = "fdr"))
+View(CNShortHits_FDR)
+write_tsv(CNShortHits_FDR, here("output", "PropTest_LongGroupLessAmpThanShortGroupAmp_Results_FDR_030521.tsv"))
 
 ```
 
@@ -180,7 +198,7 @@ CNShortHits_FDR<-CNSHortHits
 #start rna-seq section
 #our 133 erbb2 samples
 HER2Samples_OurSet<-read_tsv(here("data_intermediate", "TCGA_PanCan_fromXena_BRCA_ERBB2_Amplified.tsv"))
-View(HER2Samples_OurSet)
+#View(HER2Samples_OurSet)
 
 #okay now try adapting the tcgabiolinks vignette for our samples
 library(TCGAbiolinks)
@@ -198,9 +216,9 @@ query <- GDCquery(project = "TCGA-BRCA",
                   barcode = listSamples, 
                   legacy = TRUE)
 class(query)
-View(query)
+#View(query)
 class(query$barcode)
-View(query$barcode)
+#View(query$barcode)
 
 # Download a list of barcodes with platform IlluminaHiSeq_RNASeqV2
 GDCdownload(query)
@@ -208,25 +226,25 @@ GDCdownload(query)
 # Prepare expression matrix with geneID in the rows and samples (barcode) in the columns
 # rsem.genes.results as values
 BRCARnaseqSE <- GDCprepare(query)
-View(BRCARnaseqSE)
+#View(BRCARnaseqSE)
 
 library(SummarizedExperiment)
 BRCAMatrix <- assay(BRCARnaseqSE,"raw_count") # or BRCAMatrix <- assay(BRCARnaseqSE,"raw_count")
-View(BRCAMatrix) #132 samples X 19,947 genes
+#View(BRCAMatrix) #132 samples X 19,947 genes
 
 ####skip
 
-# REVIEW this step
-# For gene expression if you need to see a boxplot correlation and AAIC plot to define outliers you can run
-BRCARnaseq_CorOutliers <- TCGAanalyze_Preprocessing(BRCARnaseqSE)
-BRCARnaseq_CorOutliers
+# # REVIEW this step
+# # For gene expression if you need to see a boxplot correlation and AAIC plot to define outliers you can run
+# BRCARnaseq_CorOutliers <- TCGAanalyze_Preprocessing(BRCARnaseqSE)
+# BRCARnaseq_CorOutliers
 
 library(EDASeq)
 library(edgeR)
 
 # normalization of genes
 dataNorm <- TCGAanalyze_Normalization(tabDF = BRCAMatrix, geneInfo =  geneInfo)
-View(dataNorm)
+#View(dataNorm)
 
 # quantile filter of genes
 dataFilt <- TCGAanalyze_Filtering(tabDF = dataNorm,
@@ -241,44 +259,42 @@ class(dataFilt)
 View(BRCAMatrix)
 #get all the column names = samlple names as queries
 BRCAMatrix_sampleNamesFull<-colnames(dataFilt)#colnames(BRCAMatrix) #Subbing out dataFile here
-View(BRCAMatrix_sampleNamesFull)
+#View(BRCAMatrix_sampleNamesFull)
 BRCAMatrix_sampleNamesFull<-as.data.frame(BRCAMatrix_sampleNamesFull) #data frame first so we can set colnames
 colnames(BRCAMatrix_sampleNamesFull)<-c("Sample_ID_FullBarcode") 
 
 BRCAMatrix_sampleNamesFull_Abbr<-BRCAMatrix_sampleNamesFull %>%
   mutate(Sample_ID = str_sub(Sample_ID_FullBarcode, 0, 12))
-View(BRCAMatrix_sampleNamesFull_Abbr)
+#View(BRCAMatrix_sampleNamesFull_Abbr)
 
 #now join with our sample information
 BRCAMatrix_sampleNamesFull_Abbr_toGroup<-BRCAMatrix_sampleNamesFull_Abbr %>%
   mutate(Group = ifelse(Sample_ID %in% HER2Amp_Over3Years$Sample_ID, "Long", "Short"))
-View(BRCAMatrix_sampleNamesFull_Abbr_toGroup)
+#View(BRCAMatrix_sampleNamesFull_Abbr_toGroup)
 
-
-#WORKING HERE
 
 #okay, now need to split according to this indicator
 samplesSHORT<-BRCAMatrix_sampleNamesFull_Abbr_toGroup %>%
   filter(Group=="Short") %>%
   select(Sample_ID_FullBarcode)
-View(samplesSHORT) #78 entries, matches
+#View(samplesSHORT) #78 entries, matches
 
 # selection of tumor samples "TP"
 samplesLONG<-BRCAMatrix_sampleNamesFull_Abbr_toGroup %>%
   filter(Group=="Long") %>%
   select(Sample_ID_FullBarcode)
-View(samplesLONG) #54 entries, matches
+#View(samplesLONG) #54 entries, matches
 
 #now we should be able to subset according to these
 BRCADataShort<-as.data.frame(dataFilt) %>% #as.data.frame(BRCAMatrix) %>% #subbing data file
   select(one_of(samplesSHORT$Sample_ID_FullBarcode))
-View(BRCADataShort)
+#View(BRCADataShort)
 BRCAMatrixShort<-as.matrix(BRCADataShort)
-View(BRCAMatrixShort)
+#View(BRCAMatrixShort)
 
 BRCADataLong<-as.data.frame(dataFilt) %>%
   select(one_of(samplesLONG$Sample_ID_FullBarcode))
-View(BRCADataLong)
+#View(BRCADataLong)
 BRCAMatrixLong<-as.matrix(BRCADataLong)
 
 
@@ -296,10 +312,10 @@ dataDEGs <- TCGAanalyze_DEA(mat1 = BRCAMatrixShort,
 dataDEGsFiltLevel <- TCGAanalyze_LevelTab(dataDEGs,"Short","Long",
                                           BRCAMatrixShort,BRCAMatrixLong)
 dataDEGsFiltLevel
-View(dataDEGs)
+#View(dataDEGs)
 View(dataDEGsFiltLevel)
 #output test
-write_tsv(dataDEGsFiltLevel, here("output", "Table_ShortVsLong_UppQuantNorm_DE_FoldChange_FDR.tsv"))
+#write_tsv(dataDEGsFiltLevel, here("output", "Table_ShortVsLong_UppQuantNorm_DE_FoldChange_FDR.tsv"))
 
 #review our top hits
 #this is FDR<0.20, we can be more restrictive (discuss with Samuel)
@@ -307,7 +323,7 @@ ShortHits<-dataDEGsFiltLevel %>%
   filter(logFC<0)
 View(ShortHits)
 #output short hits only
-write_tsv(ShortHits, here("output", "Table_ShortVsLong_UppQuantNorm_DE_FoldChange_FDR_ShortHits.tsv"))
+#write_tsv(ShortHits, here("output", "Table_ShortVsLong_UppQuantNorm_DE_FoldChange_FDR_ShortHits.tsv"))
 
 
 #volcano plot
