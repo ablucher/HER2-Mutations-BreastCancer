@@ -251,6 +251,7 @@ dataFilt <- TCGAanalyze_Filtering(tabDF = dataNorm,
                                   method = "quantile", 
                                   qnt.cut =  0.25) #we are filtering to ABOVE the .25 quantile, i.e. drop lowest 25%
 View(dataFilt)
+View(as.data.frame(dataFilt))
 class(dataFilt)
 #now we need to assign SHORT vs LONG groups
 
@@ -406,3 +407,34 @@ boxplotTopNeg<-dataExp_topNegGenes %>%
 boxplotTopNeg + facet_wrap( ~ Gene, ncol=5)
 ```
 
+```{r}
+#Add library check against our ShortHitList
+ShortHits<-dataDEGsFiltLevel %>%
+  filter(logFC<0)
+View(ShortHits)
+#output short hits only
+#write_tsv(ShortHits, here("output", "Table_ShortVsLong_UppQuantNorm_DE_FoldChange_FDR_ShortHits.tsv"))
+
+#read in library
+#checking this with Samuel 03/05/21
+GeneLibrary<-read_tsv(here("data", "resources_ORF", "ORF_collection_v3.txt"))
+View(GeneLibrary)
+
+#add library annotation if already made
+ShortHits_LibraryAnnotation<-ShortHits %>%
+  mutate(InLibrary = ifelse(ShortHits$mRNA %in% GeneLibrary$`Gene Symbol`, "Yes", "No"))
+View(ShortHits_LibraryAnnotation)
+#output full
+write_tsv(ShortHits_LibraryAnnotation, here("output", "Table_ShortVsLong_UppQuantNorm_DE_FoldChange_FDR_ShortHits_LibraryAnnotation.tsv"))
+
+#also pull the library information for look-up in case Samuel needs
+#multiple clones per gene, so we have a many->to one relationship
+GeneLibrary_Subset<-GeneLibrary %>%
+  filter(`Gene Symbol` %in% ShortHits$mRNA)
+View(GeneLibrary_Subset) #242 total
+View(unique(GeneLibrary_Subset$`Gene Symbol`)) #83 unique
+#output
+write_tsv(GeneLibrary_Subset, here("output", "Library_SubsetToQueryGenes.tsv"))
+
+
+```
