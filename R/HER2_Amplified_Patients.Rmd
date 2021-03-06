@@ -8,19 +8,32 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(broom)
 library(here)
 library(readxl)
+library(TCGAbiolinks) #for querying TCGA RNASeq data
+library(SummarizedExperiment)
+library(EDASeq)
+library(edgeR)
+
+library(ggrepel)
 ```
 
-## R Markdown
+## A2 HER2 Project
 
-Script for TCGA patients; HER2
+TCGA BRCA Subset:
+This script works with TCGA BRCA samples. First, it subsets to all patient samples with HER2 amplifications by using GISTIC data from TCGA. For these patient samples, we look up clinical information to get overall survival (OS) and split the data into patients survivng less than 3 years/ more than 3 years. We use these subsets (Short is <3 YRS; Long is >3 YRS) for prioritizing genes below. 
 
-Notes 03/04/21
+Prioritizing co-amplified and co-expressed genes:
+Then it pulls out CN amplified genes for these samples and uses a test of proportions to identify genes amplified in the Short survival group. Then for RNASeq data (queried through TCGAbiolinks), we assess differentially expressed genes between the two groups, and focus on those genes that are up-regulated in the Short survival group. 
+
+Notes 03/04/21-03/05/21
 -TCGA breast patients, HER2 by IHC subset
 -pull in TCGA clinical/survival data (using clinical data resource*)
--pull in CN and expression
--compare between the 2 groups
+-pull in CN and expression; compare between the 2 groups
+-CN section, no genes passing FDR
+-RNA section, 103 genes with negative log fold change (so overexpressed in Short Survival group) -> use these
+-added section to compare back to Samuel's full libary; output
 
 ```{r}
 #tcga patients
@@ -136,7 +149,7 @@ hist_short<-TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts_WIDE %>%
 hist_short
 
 #set up with broom so we can iterate and run proportion tests
-library(broom)
+
 #prop.test set up
 x<-c(12, 26) #cases
 n<-c(24, 28) #counts of the trial
@@ -201,7 +214,6 @@ HER2Samples_OurSet<-read_tsv(here("data_intermediate", "TCGA_PanCan_fromXena_BRC
 #View(HER2Samples_OurSet)
 
 #okay now try adapting the tcgabiolinks vignette for our samples
-library(TCGAbiolinks)
 
 #we don't have the full barcodes, so this may not work
 listSamples <- HER2Samples_OurSet$Sample_ID_Full
@@ -228,7 +240,6 @@ GDCdownload(query)
 BRCARnaseqSE <- GDCprepare(query)
 #View(BRCARnaseqSE)
 
-library(SummarizedExperiment)
 BRCAMatrix <- assay(BRCARnaseqSE,"raw_count") # or BRCAMatrix <- assay(BRCARnaseqSE,"raw_count")
 #View(BRCAMatrix) #132 samples X 19,947 genes
 
@@ -238,9 +249,6 @@ BRCAMatrix <- assay(BRCARnaseqSE,"raw_count") # or BRCAMatrix <- assay(BRCARnase
 # # For gene expression if you need to see a boxplot correlation and AAIC plot to define outliers you can run
 # BRCARnaseq_CorOutliers <- TCGAanalyze_Preprocessing(BRCARnaseqSE)
 # BRCARnaseq_CorOutliers
-
-library(EDASeq)
-library(edgeR)
 
 # normalization of genes
 dataNorm <- TCGAanalyze_Normalization(tabDF = BRCAMatrix, geneInfo =  geneInfo)
@@ -335,17 +343,17 @@ View(dataDEGsFiltLevel_annotated)
 
 volcano<-dataDEGsFiltLevel_annotated %>%
   ggplot(aes(x=logFC, y=-log10(FDR))) + 
-  geom_point(aes(size = logFC, fill = Group), shape = 21) + 
+  geom_point(aes(fill = Group), shape = 21, size = 3) + 
   labs(title = "Significant DE Genes Between HER2 Amplified Patients; Short vs Long Survival",
        subtitle = "Short is <3 Years, Long is >=3 Years")
 volcano
+```
 
-library(ggrepel)
-
+```{r}
 #manual pretty up
 volcano<-dataDEGsFiltLevel_annotated %>%
   ggplot(aes(x=logFC, y=-log10(FDR))) + 
-  geom_point(aes(size = logFC, fill = Group), shape = 21) + 
+  geom_point(aes(fill = Group), shape = 21, size = 3) + 
   scale_fill_manual(values = c("gray76", "turquoise3"))+
   labs(title = "Significant DE Genes Between HER2 Amplified Patients; Short vs Long Survival",
        subtitle = "Short is <3 Years, Long is >=3 Years") + 
