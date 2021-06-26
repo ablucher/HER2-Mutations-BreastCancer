@@ -15,3 +15,5 @@ Add link to Nate's analysis/ repo here.
 For all HER2 patients, we stratify patients according to overall survival (+/- 3 years). We then assess over-expressed and amplified genes in the short survival group (compared to the long survival group) to come up with our list of candidate resistance drivers. These genes are then over-expressed/ amplified in the screening system and also undergo pathway reporter activity. 
 
 
+# Funding
+This work was funded by the [OHSU Women's Health Circle of Giving, 2020!](https://www.ohsu.edu/womens-health/circle-giving). 
