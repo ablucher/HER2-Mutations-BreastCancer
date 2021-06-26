@@ -15,17 +15,16 @@ library(TCGAbiolinks) #for querying TCGA RNASeq data
 library(SummarizedExperiment)
 library(EDASeq)
 library(edgeR)
-
 library(ggrepel)
 ```
 
 ## A2 HER2 Project
 
 TCGA BRCA Subset:
-This script works with TCGA BRCA samples. First, it subsets to all patient samples with HER2 amplifications by using GISTIC data from TCGA. For these patient samples, we look up clinical information to get overall survival (OS) and split the data into patients survivng less than 3 years/ more than 3 years. We use these subsets (Short is <3 YRS; Long is >3 YRS) for prioritizing genes below. 
+This script works with TCGA BRCA samples. First, it subsets to all patient samples with HER2 amplifications by using GISTIC data from TCGA. For these patient samples, we look up clinical information to get overall survival (OS) and split the data into patients survivng less than 3 years/ more than 3 years. We use these subsets (Short is <3 YRS; Long is >3 YRS) for prioritizing genes below. For the aims in this project, we are interested in genes amplified or over-expressed in the Short group only, as those are candidate resistance genes that will be tested in our screen.
 
 Prioritizing co-amplified and co-expressed genes:
-Then it pulls out CN amplified genes for these samples and uses a test of proportions to identify genes amplified in the Short survival group. Then for RNASeq data (queried through TCGAbiolinks), we assess differentially expressed genes between the two groups, and focus on those genes that are up-regulated in the Short survival group. 
+Then we pull out all CN amplified genes (using GISTIC ==2) for these samples and use a test of proportions to identify genes amplified in the Short survival group compared with the Long survival group. Then for RNASeq data (queried through TCGAbiolinks), we assess differentially expressed genes between the two groups, and focus on those genes that are up-regulated in the Short survival group. 
 
 Notes 03/04/21-03/05/21
 -TCGA breast patients, HER2 by IHC subset
@@ -34,6 +33,10 @@ Notes 03/04/21-03/05/21
 -CN section, no genes passing FDR
 -RNA section, 103 genes with negative log fold change (so overexpressed in Short Survival group) -> use these
 -added section to compare back to Samuel's full libary; output
+
+Notes 06/25/21
+-clean-up script, clean up git repo
+-Samuel's screen has additional capacity, relax the FDR threshold. Discussed with Samuel that these are lower confidence genes, but since there is room on the screen anywaym we will add them to be run. 
 
 ```{r}
 #tcga patients
@@ -48,10 +51,9 @@ BRCASamples_Clinical<-TCGASamplesAll %>%
 
 #TCGA COPY NUMBER info
 #erbb2, subset to brca
-#then require 2 or 1 (amplified)
-#
+#then require GISTIC== 2 (amplified)
 TCGA_GISTIC<-read_tsv(here("data", "TCGA_PANCAN_fromXena", "TCGA.PANCAN.sampleMap_Gistic2_CopyNumber_Gistic2_all_thresholded.by_genes"))
-head(TCGA_GISTIC)
+#head(TCGA_GISTIC)
 
 TCGA_ERBB2<-TCGA_GISTIC %>%
   filter(Sample=="ERBB2")%>% # a little funny because we need genes but this first column is titled 'Sample'
@@ -82,7 +84,9 @@ hist_survival<-BRCASamples_Clinical_joinERBB2 %>%
   xlab("Overall Survival (days)")+
   ylab("Count")
 hist_survival
+```
 
+```{r}
 HER2AmpSamples<-BRCASamples_Clinical_joinERBB2 %>%
   filter(GISTIC_Score==2)
 #View(HER2AmpSamples)#133 total, write to file
@@ -107,7 +111,7 @@ HER2Amp_Over3Years<-HER2AmpSamples%>%
 
 ```{r}
 #okay get all the gistic data for these 133 samples
-head(TCGA_GISTIC)
+#head(TCGA_GISTIC)
 TCGA_GISTIC_HER2Amp_Samples<-TCGA_GISTIC %>%
   select(Sample, one_of(HER2AmpSamples$Sample_ID_Full)) #not working?
 #View(TCGA_GISTIC_HER2Amp_Samples)
@@ -147,6 +151,9 @@ hist_short<-TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts_WIDE %>%
   xlab("# Samples with Amplification in Short Group")+
   ylab("Count")
 hist_short
+```
+
+```{r}
 
 #set up with broom so we can iterate and run proportion tests
 
@@ -156,7 +163,7 @@ n<-c(24, 28) #counts of the trial
 prop.test(x, n) #compare counts versus
 
 #start with a small sample to get broom set up first
-View(TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts_WIDE[1:10,]) #just 10 here
+#View(TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts_WIDE[1:10,]) #just 10 here
 
 #let's see if this works; otherwise put it away 7:30pm
 #prop.test might need table() command, or 2 vectors, not sure
@@ -166,7 +173,7 @@ dataFrame_PropTest<-TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts_WIDE[20:50,]%>%
   mutate(test = list(broom::tidy(prop.test(c(Long_Over3Years, Short_Under3Years), c(54,79), 
                                            conf.level = .95, alternative="less")))) %>%
   tidyr::unnest(test)
-View(dataFrame_PropTest)
+#View(dataFrame_PropTest)
 
 #check 12 long, 17 short | yes this matches our data table above, first entry; good
 x<-c(2, 0) #cases
@@ -190,9 +197,9 @@ dataFrame_PropTestFull<-TCGA_GISTIC_HER2Amp_SamplesLONG_GroupCounts_WIDE%>%
   mutate(test = list(broom::tidy(prop.test(c(Long_Over3Years, Short_Under3Years), c(54,79), 
                                            alternative = "less", conf.level = .95)))) %>%
   tidyr::unnest(test)
-View(dataFrame_PropTestFull)
+#View(dataFrame_PropTestFull)
 #write to file
-write_tsv(dataFrame_PropTestFull, here("output", "PropTest_LongGroupLessAmpThanShortGroupAmp_Results_030521.tsv"))
+#write_tsv(dataFrame_PropTestFull, here("output", "PropTest_LongGroupLessAmpThanShortGroupAmp_Results_030521.tsv"))
 
 #read in the file and review
 #CNShortHits<-read_tsv(here("output", "PropTest_LongGroupLessAmpThanShortGroupAmp_Results_030421.tsv"))
@@ -203,8 +210,13 @@ CNShortHits_FDR<-dataFrame_PropTestFull%>%
   ungroup() %>%
   mutate(fdr = p.adjust(p.value, method = "fdr"))
 View(CNShortHits_FDR)
-write_tsv(CNShortHits_FDR, here("output", "PropTest_LongGroupLessAmpThanShortGroupAmp_Results_FDR_030521.tsv"))
+#write_tsv(CNShortHits_FDR, here("output", "PropTest_LongGroupLessAmpThanShortGroupAmp_Results_FDR_030521.tsv"))
 
+#NOTES
+#No CN genes passing FDR correction
+#discussed with Samuel - and we will use the DE genes from the RNASeq only for now
+#we have room for about ~100 genes on the screen total, so we will use high confidence DE genes first
+#then if there is room to fill in, we may add CN
 ```
 
 ```{r}
@@ -313,7 +325,7 @@ dataDEGs <- TCGAanalyze_DEA(mat1 = BRCAMatrixShort,
                             mat2 = BRCAMatrixLong,
                             Cond1type = "Short",
                             Cond2type = "Long",
-                            fdr.cut = 0.20 , #let's see out to FDR<.20, we likely will use <0.10
+                            fdr.cut = 0.50 , #let's see out to FDR<.20, we likely will use <0.10
                             logFC.cut = 1,
                             method = "glmLRT")
 
@@ -324,7 +336,7 @@ dataDEGsFiltLevel
 #View(dataDEGs)
 View(dataDEGsFiltLevel)
 #output test
-#write_tsv(dataDEGsFiltLevel, here("output", "Table_ShortVsLong_UppQuantNorm_DE_FoldChange_FDR.tsv"))
+write_tsv(dataDEGsFiltLevel, here("output_210625", "Table_ShortVsLong_UppQuantNorm_DE_FoldChange_FDR_210625.tsv"))
 
 #review our top hits
 #this is FDR<0.20, we can be more restrictive (discuss with Samuel)
@@ -332,7 +344,7 @@ ShortHits<-dataDEGsFiltLevel %>%
   filter(logFC<0)
 View(ShortHits)
 #output short hits only
-#write_tsv(ShortHits, here("output", "Table_ShortVsLong_UppQuantNorm_DE_FoldChange_FDR_ShortHits.tsv"))
+write_tsv(ShortHits, here("output_210625", "Table_ShortVsLong_UppQuantNorm_DE_FoldChange_FDR_ShortHits_210625.tsv"))
 
 
 #volcano plot
@@ -421,7 +433,7 @@ ShortHits<-dataDEGsFiltLevel %>%
   filter(logFC<0)
 View(ShortHits)
 #output short hits only
-#write_tsv(ShortHits, here("output", "Table_ShortVsLong_UppQuantNorm_DE_FoldChange_FDR_ShortHits.tsv"))
+write_tsv(ShortHits, here("output_210625", "Table_ShortVsLong_UppQuantNorm_DE_FoldChange_FDR_ShortHits_210625.tsv"))
 
 #read in library
 #checking this with Samuel 03/05/21
@@ -433,7 +445,7 @@ ShortHits_LibraryAnnotation<-ShortHits %>%
   mutate(InLibrary = ifelse(ShortHits$mRNA %in% GeneLibrary$`Gene Symbol`, "Yes", "No"))
 View(ShortHits_LibraryAnnotation)
 #output full
-write_tsv(ShortHits_LibraryAnnotation, here("output", "Table_ShortVsLong_UppQuantNorm_DE_FoldChange_FDR_ShortHits_LibraryAnnotation.tsv"))
+write_tsv(ShortHits_LibraryAnnotation, here("output_210625", "Table_ShortVsLong_UppQuantNorm_DE_FoldChange_FDR_ShortHits_LibraryAnnotation_210625.tsv"))
 
 #also pull the library information for look-up in case Samuel needs
 #multiple clones per gene, so we have a many->to one relationship
@@ -442,7 +454,7 @@ GeneLibrary_Subset<-GeneLibrary %>%
 View(GeneLibrary_Subset) #242 total
 View(unique(GeneLibrary_Subset$`Gene Symbol`)) #83 unique
 #output
-write_tsv(GeneLibrary_Subset, here("output", "Library_SubsetToQueryGenes.tsv"))
+write_tsv(GeneLibrary_Subset, here("output_210625", "Library_SubsetToQueryGenes_210625.tsv"))
 
 
 ```
