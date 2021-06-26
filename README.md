@@ -16,4 +16,4 @@ For all HER2 patients, we stratify patients according to overall survival (+/- 3
 
 
 # Funding
-This work was funded by the [OHSU Women's Health Circle of Giving, 2020!](https://www.ohsu.edu/womens-health/circle-giving). 
+This work was funded by the [OHSU Women's Health Circle of Giving, 2020.](https://www.ohsu.edu/womens-health/circle-giving)
