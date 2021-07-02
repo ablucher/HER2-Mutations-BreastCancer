@@ -20,8 +20,8 @@ library(ggrepel)
 
 ## A2 HER2 Project
 
-TCGA BRCA Subset:
-This script works with TCGA BRCA samples. First, it subsets to all patient samples with HER2 amplifications by using GISTIC data from TCGA. For these patient samples, we look up clinical information to get overall survival (OS) and split the data into patients survivng less than 3 years/ more than 3 years. We use these subsets (Short is <3 YRS; Long is >3 YRS) for prioritizing genes below. For the aims in this project, we are interested in genes amplified or over-expressed in the Short group only, as those are candidate resistance genes that will be tested in our screen.
+TCGA BRCA Subset and Cohort Stratification by Survival Time:
+This script prioritizes genes for Samuel's HER2 screen using TCGA BRCA data. First, we subsets to all BRCA patient samples with HER2 amplifications by using GISTIC data from TCGA. For these patient samples, we look up clinical information to get overall survival (OS) and split the data into patients survivng less than 3 years/ more than 3 years, as specified in the grant application. We use these subsets (Short is <=3 YRS; Long is >3 YRS) for prioritizing genes below. For the aims of this project, we are interested in genes amplified or over-expressed in the Short group only, as those are candidate resistance genes that will be tested in our screen.
 
 Prioritizing co-amplified and co-expressed genes:
 Then we pull out all CN amplified genes (using GISTIC ==2) for these samples and use a test of proportions to identify genes amplified in the Short survival group compared with the Long survival group. Then for RNASeq data (queried through TCGAbiolinks), we assess differentially expressed genes between the two groups, and focus on those genes that are up-regulated in the Short survival group. 
@@ -34,9 +34,10 @@ Notes 03/04/21-03/05/21
 -RNA section, 103 genes with negative log fold change (so overexpressed in Short Survival group) -> use these
 -added section to compare back to Samuel's full libary; output
 
-Notes 06/25/21
+Notes 06/25/21-07/02/21
 -clean-up script, clean up git repo
 -Samuel's screen has additional capacity, relax the FDR threshold. Discussed with Samuel that these are lower confidence genes, but since there is room on the screen anywaym we will add them to be run. 
+-Regenerated list for him since he is starting on the A2 screen at end of June
 
 ```{r}
 #tcga patients
@@ -254,8 +255,6 @@ BRCARnaseqSE <- GDCprepare(query)
 
 BRCAMatrix <- assay(BRCARnaseqSE,"raw_count") # or BRCAMatrix <- assay(BRCARnaseqSE,"raw_count")
 #View(BRCAMatrix) #132 samples X 19,947 genes
-
-####skip
 
 # # REVIEW this step
 # # For gene expression if you need to see a boxplot correlation and AAIC plot to define outliers you can run
