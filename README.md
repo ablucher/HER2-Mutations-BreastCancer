@@ -6,7 +6,7 @@ Collects ERBB2 (HER2) point and in/del mutations from cBioPortal (across 13 brea
 
 We screen each invidual HER2 mutant's functional role in breast cancer cells using Samuel's novel pathway reporter/ functional imaging platform. This platform consists of a suite of pathway reporter assays that indicate pathway signaling; time-series imaging is used to quantify the reporter signal. 
 
-Add link to Nate's analysis/ repo here. 
+Add [link to Nate's HER2 analysis/ repo here.](https://github.com/nathanieljevans/HER2_mutant) 
 
 # Aim 2. Candidate Resistance Driver Genes in HER2 Breast Cancer
 Collects ERBB (HER2) patients from TCGA BRCA with available survival data. Stratifies cohort into short and long survival groups and assesses differentially expressed genes between the two groups.
